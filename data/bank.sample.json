@@ -1,0 +1,39 @@
+{
+  "papers": [
+    {
+      "id": "sample-n2",
+      "level": "N2",
+      "title": "示例练习卷",
+      "durationSeconds": 120,
+      "sections": [
+        {
+          "id": "vocab",
+          "title": "文字词汇",
+          "durationSeconds": 60
+        }
+      ]
+    }
+  ],
+  "questions": [
+    {
+      "id": "sample-n2-001",
+      "paperId": "sample-n2",
+      "level": "N2",
+      "sectionId": "vocab",
+      "sectionTitle": "文字词汇",
+      "type": 101,
+      "typeTitle": "汉字读法",
+      "number": "1",
+      "order": 1,
+      "stem": "这是一个题库格式示例。请选择正确答案。",
+      "options": [
+        {"id": "1", "text": "选项一"},
+        {"id": "2", "text": "选项二"},
+        {"id": "3", "text": "选项三"},
+        {"id": "4", "text": "选项四"}
+      ],
+      "answer": "1",
+      "explanation": "这里填写题目解析。"
+    }
+  ]
+}

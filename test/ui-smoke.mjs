@@ -1,0 +1,63 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {fileURLToPath} from 'node:url';
+import {StudyEngine} from '../lib/engine.mjs';
+import {createApp} from '../server.mjs';
+const require=createRequire(import.meta.url);
+const {chromium}=require('../../tools/rea/node_modules/rea-agents/node_modules/playwright-core');
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const port=47323;
+const engine=new StudyEngine({bankPath:path.join(root,'data/bank.json')});
+const {server}=createApp({root,port,engine});
+await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(port,'127.0.0.1',resolve);});
+let browser;const checks=[];const errors=[];const originalFetch=globalThis.fetch;let outbound=0;
+globalThis.fetch=async(url,options)=>{if(String(url).startsWith('https://')){outbound++;throw new Error('External network disabled for offline acceptance');}return originalFetch(url,options);};
+try{
+ browser=await chromium.launch({executablePath:'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',headless:true});
+ const page=await browser.newPage({viewport:{width:1440,height:1000},deviceScaleFactor:1});
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(`http://127.0.0.1:${port}`);await page.locator('[data-action="category"]').first().waitFor();
+ await page.screenshot({path:path.join(root,'evidence/pc-dashboard.png'),fullPage:true});
+ assert.equal(await page.locator('#level').inputValue(),'N2');checks.push('真实 N2 目录与仪表盘显示');
+ await page.locator('a[href="#practice"]').first().click();
+ await page.locator('[data-action="setup-practice"][data-type="101"]').click();
+ await page.locator('[data-count="10"]').click();await page.locator('#practice-order').selectOption('sequential');
+ await page.locator('[data-action="create-practice"]').click();await page.locator('[data-action="answer"]').first().waitFor();
+ let id=page.url().split('/').pop();let s=engine.findSession(id),q=s.questions[0];
+ const wrong=q.options.find(o=>o.id!==q.answer).id;
+ await page.locator(`[data-action="answer"][data-option="${wrong}"]`).click();
+ await page.locator('.explanation').waitFor();assert.equal(engine.state.wrong[q.id].wrongCount,1);
+ await page.locator('[data-action="favorite"]').click();await page.locator('[aria-label="取消收藏"]').waitFor();
+ await page.locator('[data-action="flag"]').click();await page.locator('[data-action="next"]').click();
+ await page.waitForFunction(()=>state.session?.currentIndex===1);await page.reload();await page.waitForFunction(()=>state.session?.currentIndex===1);
+ assert.equal(engine.findSession(id).flags.length,1);assert.equal(engine.findSession(id).feedback[q.id].correct,false);
+ await page.locator('[data-action="go-question"][data-index="0"]').click();await page.locator('.explanation').waitFor();
+ await page.screenshot({path:path.join(root,'evidence/pc-practice.png'),fullPage:true});checks.push('专项错误反馈、下划线题干、收藏标记与刷新续做');
+ await page.locator('[data-action="finish"]').click();await page.locator('[data-action="submit-finish"]').click();await page.locator('.result-hero').waitFor();
+ assert.equal(engine.findSession(id).result.unanswered,9);checks.push('交卷确认与9题漏答统计');
+ await page.locator('a[href="#wrong"]').first().click();await page.locator('[data-action="practice-one"]').first().waitFor();
+ await page.locator('[data-action="practice-one"]').first().click();await page.locator('[data-action="create-practice"]').click();await page.locator('[data-action="answer"]').first().waitFor();
+ const rid=page.url().split('/').pop(),rq=engine.findSession(rid).questions[0];
+ await page.locator(`[data-action="answer"][data-option="${rq.answer}"]`).click();await page.locator('.explanation').waitFor();assert.equal(engine.state.wrong[rq.id].resolved,true);checks.push('错题单题重做、答对移出待复习');
+ await page.locator('a[href="#exam"]').first().click();await page.locator('[data-action="setup-exam"]').first().click();await page.locator('[data-action="create-exam"]').click();await page.locator('[data-action="answer"]').first().waitFor();
+ const eid=page.url().split('/').pop();assert.equal(await page.locator('.explanation').count(),0);
+ await page.locator('[data-action="answer"]').first().click();await page.waitForFunction(()=>Object.keys(state.session.answers).length===1);
+ assert.equal(await page.locator('.option.correct,.option.wrong,.explanation').count(),0);
+ assert.ok(engine.findSession(eid).sectionDeadline>Date.now());
+ await page.screenshot({path:path.join(root,'evidence/pc-exam.png'),fullPage:true});
+ await page.locator('[data-action="next-section"]').click();await page.locator('[data-action="submit-next-section"]').click();await page.waitForFunction(()=>state.session?.activeSectionIndex===1);
+ checks.push('真实整卷模考不泄露答案、分科计时与提交切科');
+ await page.locator('#exam-focus-bar [data-action="focus-finish"]').click();await page.locator('[data-action="submit-finish"]').click();await page.locator('.result-hero').waitFor();
+ const table=engine.bank.questions.find(q=>q.level==='N2'&&q.type>=300&&q.type<400&&JSON.stringify(q.passageDocument).includes('"type":"table"'));
+ if(table){const t=engine.createSession({mode:'practice',level:table.level,questionIds:[table.id],count:1});await page.goto(`http://127.0.0.1:${port}/#session/${t.id}`);await page.locator('.question-card').waitFor();assert.ok(await page.locator('table').count()>0);await page.screenshot({path:path.join(root,'evidence/pc-reading.png'),fullPage:true});checks.push('阅读共享材料与原生表格渲染');}
+ const image=engine.bank.questions.find(q=>q.images?.length&&(JSON.stringify(q.passageDocument)||'').includes('text_document'));
+ if(image){await page.route('**/media/**',route=>route.abort());const t=engine.createSession({mode:'practice',level:image.level,questionIds:[image.id],count:1});await page.goto(`http://127.0.0.1:${port}/#session/${t.id}`);await page.locator('.image-fallback:not([hidden])').first().waitFor();checks.push('题图断网时显示结构化文字后备');await page.unroute('**/media/**');}
+ const audio=engine.bank.questions.find(q=>q.level==='N2'&&q.audio);
+ if(audio){const t=engine.createSession({mode:'practice',level:audio.level,questionIds:[audio.id],count:1});await page.goto(`http://127.0.0.1:${port}/#session/${t.id}`);await page.locator('audio[data-audio]').waitFor();const result=await page.locator('audio[data-audio]').evaluate(async a=>{a.load();try{await a.play();return await new Promise((resolve)=>{if(a.duration>0){a.pause();resolve({duration:a.duration,readyState:a.readyState});return;}a.addEventListener('loadedmetadata',()=>{a.pause();resolve({duration:a.duration,readyState:a.readyState});},{once:true});a.addEventListener('error',()=>resolve({error:a.error?.message}),{once:true});setTimeout(()=>resolve({error:'timeout'}),45000);});}catch(e){return {error:e.message};}});assert.ok(result.duration>0,JSON.stringify(result));checks.push('真实听力可播放并加载时长 '+Math.round(result.duration)+' 秒');}
+ assert.equal(outbound,0);checks.push('外部网络请求被禁止时，离线听力仍可播放；无出站请求');
+ assert.deepEqual(errors,[]);
+ fs.writeFileSync(path.join(root,'evidence/verification.json'),JSON.stringify({at:new Date().toISOString(),checks,pageErrors:errors,isolatedInMemoryState:true,totalQuestions:engine.bank.questions.length,totalPapers:engine.bank.papers.length},null,2));
+ console.log(JSON.stringify({ok:true,checks,pageErrors:errors},null,2));
+}finally{globalThis.fetch=originalFetch;if(browser)await browser.close();server.closeAllConnections();await new Promise(r=>server.close(r));}

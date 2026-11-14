@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#a18cd1">
+  <title>日语研习室 · JLPT DESK</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23a18cd1'/%3E%3Ctext x='32' y='45' text-anchor='middle' font-size='39' fill='%23fff' font-family='serif'%3E学%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/theme.css">
+  <script src="/exam-audio.js" defer></script>
+  <script src="/exam-focus.js" defer></script>
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <aside class="sidebar" aria-label="主导航">
+    <a class="brand" href="#dashboard"><span class="brand-mark">学</span><span><strong>日语研习室</strong><small>JLPT DESK</small></span></a>
+    <div class="nav-label">学习空间 <span>WORKSPACE</span></div>
+    <nav id="nav"></nav>
+    <div class="sidebar-bottom"><div class="local-dot"></div><div><strong>专注学习，自有节奏</strong><small>学习进度保存在这台电脑</small></div></div>
+  </aside>
+  <div class="app-shell">
+    <div id="exam-focus-bar" class="exam-focus-bar" hidden><span><i></i> 全屏模拟考场 <small>切换窗口将暂停考试</small></span><button class="button small" data-action="focus-finish">交卷并退出</button></div>
+    <header class="topbar"><div class="topbar-title" id="page-title">学习概览</div><div class="topbar-right"><span class="save-indicator"><i></i><span id="save-status">本地学习空间</span></span><span class="topbar-divider"></span><label class="level-control"><span>目标等级</span><select id="level" aria-label="目标等级"><option>N1</option><option selected>N2</option><option>N3</option><option>N4</option><option>N5</option></select></label><button class="icon-button" id="theme-button" title="切换深色主题" aria-label="切换深色主题"></button></div></header>
+    <main id="main" tabindex="-1"><div class="loading"><span class="spinner"></span>正在打开学习空间…</div></main>
+    <footer class="app-footer"><span>日语研习室 <span class="footer-dot">·</span> 每一次练习，都有收获。</span><span>LOCAL EDITION</span></footer>
+  </div>
+  <div id="toast-region" aria-live="polite"></div>
+  <section id="exam-focus-overlay" class="exam-focus-overlay" aria-labelledby="exam-focus-reason" hidden><div class="exam-focus-card"><span class="exam-focus-symbol" aria-hidden="true">▣</span><div class="eyebrow">EXAM PAUSED</div><h1 id="exam-focus-reason">请恢复全屏考场</h1><p id="exam-focus-status" role="status">正在保存暂停位置…</p><button id="exam-focus-resume" class="button primary" data-action="resume-exam-focus">恢复全屏并继续考试</button><button class="text-button" data-action="focus-finish">交卷并退出</button><p class="exam-focus-note">系统快捷键和浏览器退出全屏操作仍由系统控制。离开考场后，需恢复全屏才能继续作答。</p></div></section>
+  <dialog id="modal"><div id="modal-content"></div></dialog>
+</body>
+</html>
