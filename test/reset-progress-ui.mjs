@@ -1,11 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import {createRequire} from 'node:module';
+import {chromium} from './browser.mjs';
 import {fileURLToPath} from 'node:url';
 import {StudyEngine} from '../lib/engine.mjs';
 import {createApp} from '../server.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('../../tools/rea/node_modules/rea-agents/node_modules/playwright-core');
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const fixture={papers:['N2','N3'].map(level=>({id:level,title:level+' 验收卷',level})),questions:['N2','N3'].map(level=>({id:'q'+level,paperId:level,level,type:101,typeTitle:'汉字读法',stem:'日本',options:[{id:'1',text:'にほん'},{id:'2',text:'にちほん'}],answer:'1',explanation:'日本读作にほん'}))};
 const engine=new StudyEngine({bank:fixture});let last;

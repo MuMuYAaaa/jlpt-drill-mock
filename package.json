@@ -4,6 +4,15 @@
   "private": true,
   "type": "module",
   "description": "Local Japanese practice and mock examination workspace",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/MuMuYAaaa/jlpt-drill-mock.git" },
   "engines": { "node": ">=24.15.0" },
-  "scripts": { "start": "node server.mjs", "test": "node --test test/*.test.mjs" }
+  "scripts": {
+    "start": "node server.mjs",
+    "setup-data": "node scripts/setup-data.mjs",
+    "prepare-resources": "node scripts/prepare-resources.mjs",
+    "download-audio": "node download-audio.mjs",
+    "check-audio": "node download-audio.mjs --check",
+    "test": "node --test test/*.test.mjs"
+  }
 }

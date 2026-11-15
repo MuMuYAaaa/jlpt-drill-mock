@@ -1,15 +1,28 @@
 # 日语研习室 · PC 本地版
 
-这是一个面向 Windows 的本地日语刷题与 JLPT 模拟考试工具。仓库发布应用源码、界面、考试引擎、测试和构建脚本；完整题库与离线音频不随公共源码仓库提交，请只使用你拥有发布权的学习资源。
+面向 Windows 的本地日语刷题与 JLPT 模拟考试工具。包含应用源码、考试引擎、测试、安装向导、完整压缩题库与媒体索引。Windows 完整离线版通过 [Releases](https://github.com/MuMuYAaaa/jlpt-drill-mock/releases) 提供。
 
-双击本文件夹里的 **日语研习室.exe** 即可使用。发布版安装包会打开独立学习窗口；不需要雷电模拟器继续运行，也不需要安装 Node 或配置账号。源码开发时，请先准备自己的 `data/bank.json` 和媒体资源。
+使用软件：下载 Release 中的安装 EXE，或完整解压免安装 ZIP 后双击 **日语研习室.exe**。不需要模拟器、MCP、账号或额外安装 Node。适用于 Windows 10/11 x64。
+
+源码启动（Node.js 24.15 或更高版本，无运行时 npm 依赖）：
+
+```sh
+git clone https://github.com/MuMuYAaaa/jlpt-drill-mock.git
+cd jlpt-drill-mock
+npm run setup-data
+npm start
+```
+
+浏览器访问 `http://127.0.0.1:47321`。题库初始化会校验压缩资源，并保留已有题库与学习记录。需要离线听力时，从完整 ZIP 复制 `media/` 和 `data/offline-audio.json`，或运行 `npm run download-audio` 从索引中的公开地址下载并校验；`npm run check-audio` 可检查本地音频是否齐全。
+
+![首页](docs/images/dashboard.png)
 
 本机地址：<http://127.0.0.1:47321>。关闭学习窗口后，服务仍保留在任务栏托盘中，可右键选择「退出学习服务」。再次打开程序可继续学习。
 
 ## 已实现
 
 - 界面采用珊瑚粉、浅粉、薰衣草紫和白色的多巴胺配色，首页与导航使用柔和渐变，题目区保持白底深字；深色模式同步采用粉紫色系。
-- N1–N5，115 套试卷，11,552 道题，来源为这台电脑已安装应用中的本地题库。
+- N1–N5，115 套试卷，11,552 道题，规范化数据与来源说明随仓库提供。
 - 文字词汇、语法、阅读、听力专项；按题型和试卷筛选，顺序或随机练习。
 - 每组可选 10 / 20 / 30 / 50 题、全部或自定义题量；全部按当前等级、题型或错题/收藏范围取题，自定义会检查可用题数。
 - 练习立即判题、正确答案和中文解析；保留题干下划线、注音、阅读材料及表格。
@@ -26,13 +39,13 @@
 
 ## 开源仓库与发布资源
 
-公共仓库不包含 `data/progress.json`、`media/`、完整题库、安装包、Node 运行时和本地验收证据。完整 Windows 分享版由 `build-release.ps1` 生成，包含当前目录中已经准备好的题库和音频；生成前请确认这些内容允许公开分发。
+完整题库压缩为 `resources/bank.json.gz`（约 11 MB），媒体索引位于 `resources/media-index.json`，均附 SHA-256 清单。3,396 段离线听力包含在 Release 的安装版和免安装版中，下载脚本也可从公开源补齐。
 
-`data/bank.sample.json` 是可提交的最小题库示例。要运行完整内容，请在数据页导入你有权使用的题库，并在需要时运行音频下载脚本。
+`data/bank.sample.json` 提供题库格式示例。应用源码采用 [MIT](LICENSE)；第三方题库、题图、音频与 Node 的来源及许可范围见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。个人学习记录、密钥、账号、原始数据库、APK 和本地分析资料不进入公共仓库或安装包。
 
 ## 数据与维护
 
-请保留整个文件夹。运行时附在 runtime；题库与进度在 data；媒体缓存在 media。迁移到其他电脑时可复制整个文件夹，也可通过数据页导出学习记录。原始分析证据在 evidence，不通过本地网页提供下载。
+请保留完整程序文件夹。发布版的运行时在 runtime；题库与进度在 data；媒体缓存在 media。迁移到其他电脑时可复制完整文件夹，也可通过数据页导出学习记录。开发与验收证据保存在本机，不随源码仓库发布。
 
 如果启动失败，双击「启动诊断.cmd」查看错误。程序使用本机端口 47321。请勿同时运行诊断窗口和正常启动器。若离线音频被误删或损坏，可联网运行「下载听力音频.cmd」；它会逐个校验并只补下载缺失或损坏文件。
 
@@ -42,10 +55,10 @@
 
 新版听力适用于新创建的模考；旧版考试记录保留原进度，需从试卷列表新开一场使用新版。所有 115 套原卷已接入播放计划，详见 EXAM_LISTENING_SPEC.md。
 
-开发校验：`runtime/node.exe --test test/*.test.mjs`。逆向事实与实现对应见 CLONE_SPEC.md。
+开发校验：`npm test`。GitHub Actions 在 Windows 和 Linux 上运行初始化及引擎测试。浏览器验收先运行 `npm install --no-save playwright`，再运行 `node test/ui-smoke.mjs` 或 `node test/exam-focus-ui.mjs`；需要本机 Edge 和离线音频。功能重建事实与限制见 [CLONE_SPEC.md](CLONE_SPEC.md)。
 
 ## 生成可分享的软件包
 
-运行 `build-release.ps1` 生成 Windows x64 单文件安装包与免安装 ZIP。发布时只选取运行所需的文件和已校验音频，排除个人进度、备份、原始 APK 和分析资料；输出目录同时包含 SHA-256 校验值和分享说明。
+Windows 构建步骤：先初始化题库、准备全部听力，将 Node.js x64 可执行文件放到 `runtime/node.exe`（许可文本已保留），运行 `build-launcher.ps1`，再运行 `build-release.ps1`。后者生成单文件安装包与免安装 ZIP，包含题库、已校验音频、源码许可与第三方来源说明，输出目录还包含 SHA-256 清单和分享说明。运行 `npm run prepare-resources` 可从当前本地题库重新生成仓库资源快照。
 
 安装向导支持当前用户安装、选择目录、桌面与开始菜单快捷方式及 Windows 应用列表卸载。为保护旧记录，安装目标必须为空文件夹；迁移时使用学习备份。卸载保留 data 文件夹。

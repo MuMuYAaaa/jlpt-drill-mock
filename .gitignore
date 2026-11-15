@@ -17,3 +17,5 @@ evidence/local_keys.json
 evidence/*.db
 evidence/libapp.so
 runtime/node.exe
+node_modules/
+test-results/

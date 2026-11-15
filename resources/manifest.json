@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "papers": 115,
+  "questions": 11552,
+  "files": {
+    "bank.json.gz": {
+      "bytes": 11335146,
+      "sha256": "0ffd84607deac129d1bb6bf65b62f7bc7de06756d3c6b1a8367feae9b255f4ce",
+      "unpackedBytes": 72979631,
+      "unpackedSha256": "a1bb6d7ce70a6e14c6df887d7cdbc5f347561ffdc1e5cc057de1a210dcebbe69"
+    },
+    "media-index.json": {
+      "bytes": 1179953,
+      "sha256": "982b736bacbf6f4ac521027dda4b4d9ec5617b82797b00eafba653412d33b712"
+    }
+  }
+}

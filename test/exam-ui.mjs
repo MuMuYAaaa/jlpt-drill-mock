@@ -1,11 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import {createRequire} from 'node:module';
+import {chromium} from './browser.mjs';
 import {fileURLToPath} from 'node:url';
 import {StudyEngine} from '../lib/engine.mjs';
 import {createApp} from '../server.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('../../tools/rea/node_modules/rea-agents/node_modules/playwright-core');
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const bank=JSON.parse(fs.readFileSync(path.join(root,'data/bank.json')));
 const originals=bank.questions.filter(q=>q.level==='N2'&&q.audio).slice(0,2);

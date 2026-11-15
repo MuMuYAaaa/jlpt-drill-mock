@@ -7,6 +7,7 @@ import {Readable,Transform} from 'node:stream';
 import {pipeline} from 'node:stream/promises';
 const root=path.dirname(fileURLToPath(import.meta.url));
 const evidence=path.join(root,'evidence'),mediaDir=path.join(root,'media');fs.mkdirSync(mediaDir,{recursive:true});
+fs.mkdirSync(evidence,{recursive:true});
 const indexPath=path.join(root,'data/media-index.json');const index=JSON.parse(fs.readFileSync(indexPath));
 const rawByPath=new Map();
 for(const file of fs.readdirSync(evidence).filter(f=>/^jlpt_n[1-5]_v\d+\.db$/.test(f))){
@@ -32,6 +33,7 @@ const result={startedAt:new Date().toISOString(),total,totalBytes,completed:0,do
 const statusPath=path.join(evidence,'audio-download-status.json');const reportPath=path.join(evidence,'audio-download-report.json');
 function status(){fs.writeFileSync(statusPath,JSON.stringify({...result,items:undefined}));}
 function verify(t){if(!fs.existsSync(t.file))return false;const stat=fs.statSync(t.file);if(stat.size!==t.file_size)return false;return createHash('sha256').update(fs.readFileSync(t.file)).digest('hex')===t.sha256;}
+if(process.argv.includes('--check')){const missing=tracks.filter(t=>!verify(t));console.log(JSON.stringify({total,verified:total-missing.length,missingOrCorrupt:missing.length}));process.exit(missing.length?1:0);}
 async function fetchTrack(t){
  const tmp=t.file+'.'+randomUUID()+'.part';
  try{

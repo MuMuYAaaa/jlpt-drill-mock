@@ -1,11 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import {createRequire} from 'node:module';
+import {chromium} from './browser.mjs';
 import {fileURLToPath} from 'node:url';
 import {StudyEngine} from '../lib/engine.mjs';
 import {createApp} from '../server.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('../../tools/rea/node_modules/rea-agents/node_modules/playwright-core');
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const engine=new StudyEngine({bankPath:path.join(root,'data/bank.json')});
 const {server}=createApp({root,port:47325,engine});await new Promise(r=>server.listen(47325,'127.0.0.1',r));

@@ -1,11 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import {createRequire} from 'node:module';
+import {chromium} from './browser.mjs';
 import {fileURLToPath} from 'node:url';
 import {StudyEngine} from '../lib/engine.mjs';
 import {createApp} from '../server.mjs';
-const require=createRequire(import.meta.url),{chromium}=require('../../tools/rea/node_modules/rea-agents/node_modules/playwright-core');
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const audio=JSON.parse(fs.readFileSync(path.join(root,'data/bank.json'))).questions.find(q=>q.level==='N2'&&q.audio).audio;
 const bank={papers:[{id:'p',title:'全屏考试验收',level:'N2',sections:[{id:'r',title:'语言知识与阅读',durationSeconds:120},{id:'l',title:'听力',durationSeconds:120,restBeforeSeconds:600,audioPlan:{version:1,completionPolicy:'audio_end',items:[{audioId:'a',src:audio,questionIds:['l'],durationMs:60000,gapAfterMs:5000}],totalDurationMs:65000}}]}],questions:['r','l'].map((id,i)=>({id,paperId:'p',level:'N2',sectionId:id,type:i?401:101,stem:'全屏考试验收题目',options:[{id:'1',text:'第一选项'},{id:'2',text:'第二选项'}],answer:'1',...(i?{audio}:{})}))};

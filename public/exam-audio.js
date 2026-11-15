@@ -15,7 +15,7 @@
    this.callbacks=callbacks;this.audio=document.createElement('audio');this.audio.id='exam-continuous-audio';this.audio.preload='auto';this.audio.hidden=true;document.body.append(this.audio);
    const volume=Number(localStorage.getItem('jlpt-exam-volume')??0.8);this.audio.volume=Number.isFinite(volume)?Math.max(0,Math.min(1,volume)):0.8;this.clockOffset=0;this.lastServerNow=null;this.key=null;this.itemIndex=-1;this.token=0;
    this.audio.addEventListener('error',()=>{if(this.active&&!this.paused&&!this.error){this.error=true;this.callbacks.onError?.('离线音频未能播放，考试已暂停。请重试继续。');}});
-   this.audio.addEventListener('loadedmetadata',()=>{if(this.active&&!this.paused){this.align();this.play();}});
+   this.audio.addEventListener('loadedmetadata',()=>{if(this.active&&!this.paused){this.align(true);this.play();}});
    this.timer=setInterval(()=>this.tick(),150);
   }
   configure(session){
@@ -44,10 +44,10 @@
    }
    this.align();if(this.audio.paused&&!this.starting)this.play();
   }
-  align(){
+  align(force=false){
    const p=this.getPosition();if(!p||p.phase!=='audio'||this.audio.readyState<1)return;
    const target=Math.min(p.offsetMs/1000,Math.max(0,this.audio.duration-0.025));
-   if(Number.isFinite(target)&&Math.abs(this.audio.currentTime-target)>0.9){try{this.audio.currentTime=target;}catch{}}
+   if(Number.isFinite(target)&&(force||Math.abs(this.audio.currentTime-target)>0.9)){try{this.audio.currentTime=target;}catch{}}
    this.audio.playbackRate=1;
   }
   async play(){
