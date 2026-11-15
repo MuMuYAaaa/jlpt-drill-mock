@@ -79,7 +79,7 @@ for(const asset of assets){
  console.log(JSON.stringify({uploaded:uploaded.name,bytes:uploaded.size,digest:uploaded.digest,url:uploaded.browser_download_url}));
 }
 if(process.argv.includes('--defer-publish')){console.log(JSON.stringify({ok:true,draft:release.draft,releaseId:release.id,publicationDeferred:true}));process.exit(0);}
-if(release.draft)release=await request('PATCH',`${api}/repos/${repository}/releases/${release.id}`,{json:{draft:false}});
+if(release.draft)release=await request('PATCH',`${api}/repos/${repository}/releases/${release.id}`,{json:{draft:false,tag_name:tag,target_commitish:release.target_commitish}});
 const verified=await request('GET',`${api}/repos/${repository}/releases/${release.id}`);
 if(verified.draft||assets.some(x=>!verified.assets.some(a=>a.name===x.name&&a.state==='uploaded')))throw new Error('Release 发布状态未通过核验');
 const result={ok:true,repository:project.html_url,release:verified.html_url,assets:verified.assets.map(x=>({name:x.name,bytes:x.size,digest:x.digest,url:x.browser_download_url}))};
