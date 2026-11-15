@@ -30,9 +30,9 @@ try {
   await page.locator('[data-action="submit-finish"]').click();
   await page.locator('[data-total-score]').waitFor();
   async function assertScores() {
-    assert.match(await page.locator('[data-total-score]').innerText(), /69\.1\s*\/ 180 分/);
+    assert.match(await page.locator('[data-total-score]').innerText(), /70\.2\s*\/ 180 分/);
     assert.equal(await page.locator('[data-score-section]').count(), 3);
-    for (const [part, value, accuracy] of [['language', '28.9', '43.1%'], ['reading', '16.0', '35.0%'], ['listening', '24.2', '53.3%']]) {
+    for (const [part, value, accuracy] of [['language', '28.9', '43.1%'], ['reading', '17.1', '35.0%'], ['listening', '24.2', '53.3%']]) {
       const card = page.locator(`[data-score-section="${part}"]`);
       assert.match(await card.locator('[data-section-score]').innerText(), new RegExp(value.replace('.', '\\.')));
       assert.ok((await card.locator('[data-section-accuracy]').innerText()).includes(accuracy));
@@ -40,7 +40,7 @@ try {
   }
   await assertScores();
   await page.screenshot({ path: path.join(root, 'evidence/pc-result-scores.png') });
-  checks.push('真实 N2 101 题练习由界面提交后：28.9 + 16.0 + 24.2 = 69.1 / 180，三项正确率独立显示');
+  checks.push('真实 N2 101 题练习由界面提交后：28.9 + 17.1 + 24.2 = 70.2 / 180，中篇按原材料分组赋分');
 
   const eventsBefore = structuredClone(engine.state.events);
   delete engine.findSession(practice.id).result.scoring;
@@ -94,7 +94,18 @@ try {
   engine.finish(n3.id);
   await page.goto(`${base}/#result/${n3.id}`); await page.locator('[data-total-score]').waitFor();
   assert.match(await page.locator('[data-total-score]').innerText(), /180\.0\s*\/ 180 分/);
-  checks.push('N3 长篇阅读和发话表达按相同规则计分，三项全对为 180 分');
+  checks.push('N3 长篇阅读每题4分、发话表达每题2分，三项全对为180分');
+  for (const level of ['N1','N4','N5']) {
+    const mixed = engine.createSession({ mode:'practice', level, questionIds:[201,203,301,401].map(type=>engine.bank.questions.find(q=>q.level===level&&q.type===type).id), count:'all' });
+    for (const q of engine.findSession(mixed.id).questions) engine.answer(mixed.id,{questionId:q.id,optionId:q.type===201?q.options.find(o=>o.id!==q.answer).id:q.answer});
+    engine.finish(mixed.id);
+    await page.goto(`${base}/#result/${mixed.id}`); await page.locator('[data-total-score]').waitFor();
+    assert.ok((await page.locator('[data-total-score]').innerText()).includes(level==='N1'?'160.0':'150.0'));
+    await page.locator('.result-score-weights summary').click();
+    assert.ok((await page.locator('.result-score-method .tiny-tag').innerText()).includes(level==='N1'?'N1 参考':'N3 参考'));
+    assert.ok((await page.locator('.result-score-weights').innerText()).includes(level==='N1'?'文章语法每题 2 分':'全部每题 1 分'));
+  }
+  checks.push('N1使用独立权重；N4/N5均使用N3规则，分值说明同步当前等级');
   assert.deepEqual(errors, []);
   const report = { ok: true, at: new Date().toISOString(), checks, pageErrors: errors, isolatedInMemoryState: true };
   fs.writeFileSync(path.join(root, 'evidence/scoring-verification.json'), JSON.stringify(report, null, 2));

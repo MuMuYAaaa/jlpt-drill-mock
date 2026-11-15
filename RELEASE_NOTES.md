@@ -22,6 +22,6 @@ Windows 10/11 x64 日语刷题与模拟考试工具，首次公开源码与完�
 
 克隆仓库后运行 `npm run setup-data`、`npm start` 即可启动；需要 Node.js 24.15 或更高版本。听力可从完整 ZIP 复制 `media/`，或通过 `npm run download-audio` 下载并校验。
 
-应用源码使用 MIT；题库与媒体来源、维护者提供的公开分发声明和第三方许可范围见仓库 `THIRD_PARTY_NOTICES.md`。全屏不能完全屏蔽 Windows 系统快捷键；当前版本通过切屏暂停和锁题处理。成绩按提供的 N2 权重作为练习参考，所有等级沿用，详见 `docs/SCORING.md`；不代表 JLPT 官方量尺分数或合格判定。
+应用源码使用 MIT；题库与媒体来源、维护者提供的公开分发声明和第三方许可范围见仓库 `THIRD_PARTY_NOTICES.md`。全屏不能完全屏蔽 Windows 系统快捷键；当前版本通过切屏暂停和锁题处理。成绩按提供的 N1/N2/N3 对应规则作为练习参考，N4/N5 使用 N3 规则；N2 中篇按原材料内的位置赋分，详见 `docs/SCORING.md`。参考分不代表 JLPT 官方量尺分数或合格判定。
 
 发布文件的 SHA-256 见 `SHA256SUMS.txt`。
