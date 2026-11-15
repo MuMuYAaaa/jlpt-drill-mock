@@ -27,6 +27,7 @@ function Add-ReleaseFile([string]$relative,[string]$source) {
 }
 foreach ($taskName in @('日语研习室.exe','启动日语研习室.cmd','启动诊断.cmd','下载听力音频.cmd','download-audio.mjs','server.mjs','package.json','app.ico','data/bank.json','data/media-index.json','data/offline-audio.json')) { Add-ReleaseFile $taskName }
 Add-ReleaseFile '使用说明.txt' (Join-Path $taskRoot 'packaging\使用说明.txt')
+Add-ReleaseFile '计分规则.md' (Join-Path $taskRoot 'docs\SCORING.md')
 foreach ($taskName in @('LICENSE','THIRD_PARTY_NOTICES.md')) { Add-ReleaseFile $taskName }
 Add-ReleaseFile '卸载日语研习室.exe' $taskStub
 foreach ($taskName in @('index.html','style.css','theme.css','app.js','exam-audio.js','exam-focus.js')) { Add-ReleaseFile ('public/' + $taskName) }
