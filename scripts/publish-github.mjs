@@ -45,7 +45,11 @@ const api='https://api.github.com';
 const user=process.env.GITHUB_ACTIONS==='true'?{login:'github-actions'}:await request('GET',api+'/user');
 console.log(JSON.stringify({authenticatedAs:user.login,repository}));
 const project=await request('GET',`${api}/repos/${repository}`);
-if(project.permissions?!project.permissions.push:process.env.GITHUB_ACTIONS!=='true')throw new Error('当前 GitHub 凭据没有目标仓库的写入权限');
+// Installation tokens do not express user membership through repository.permissions.
+// Actions uses its explicitly scoped contents:write token; GitHub enforces it on every write.
+if(process.env.GITHUB_ACTIONS==='true'){
+ if(process.env.GITHUB_REPOSITORY!==repository)throw new Error('Actions 发布令牌只能用于当前仓库');
+}else if(!project.permissions?.push)throw new Error('当前 GitHub 凭据没有目标仓库的写入权限');
 if(project.private)throw new Error('目标仓库当前是私有仓库，不能将其声称为公开开源项目');
 if(process.argv.includes('--check-only')){console.log(JSON.stringify({ok:true,authenticatedAs:user.login,repository:project.html_url,canPush:true}));process.exit(0);}
 let release;
