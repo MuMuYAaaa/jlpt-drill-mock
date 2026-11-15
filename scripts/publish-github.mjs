@@ -72,7 +72,13 @@ const existing=await request('GET',`${api}/repos/${repository}/releases/${releas
 for(const asset of assets){
  if(arg('--only')&&!asset.name.includes(arg('--only')))continue;
  const file=path.join(directory,asset.file),size=fs.statSync(file).size;
- const before=existing.find(x=>x.name===asset.name);
+ let before=existing.find(x=>x.name===asset.name);
+ // Interrupted uploads remain in the dedicated asset list as starter entries,
+ // including their declared Content-Length, but are not usable downloads.
+ if(release.draft&&before?.state==='starter'&&!before.digest){
+  await request('DELETE',`${api}/repos/${repository}/releases/assets/${before.id}`);
+  console.log(JSON.stringify({removedIncompleteDraftAsset:before.name}));before=null;
+ }
  if(before){if(before.size!==size||before.digest!=='sha256:'+asset.sha)throw new Error('远端已有不匹配的同名资源：'+asset.name);console.log(JSON.stringify({alreadyUploaded:asset.name}));continue;}
  const uploaded=await request('POST',`https://uploads.github.com/repos/${repository}/releases/${release.id}/assets?name=${encodeURIComponent(asset.name)}&label=${encodeURIComponent(asset.label)}`,{file,label:asset.name});
  if(uploaded.size!==size||uploaded.state!=='uploaded'||(uploaded.digest&&uploaded.digest!=='sha256:'+asset.sha))throw new Error('上传后的文件校验不一致：'+asset.name);
