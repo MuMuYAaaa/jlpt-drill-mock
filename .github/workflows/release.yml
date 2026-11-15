@@ -1,0 +1,44 @@
+name: Build offline Windows release
+on:
+  workflow_dispatch:
+    inputs:
+      release_id:
+        description: 'Existing draft Release ID; leave empty to use the version tag'
+        type: string
+        required: false
+permissions:
+  contents: write
+concurrency:
+  group: offline-windows-release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24.22.1'
+          package-manager-cache: false
+      - name: Initialize complete question bank
+        run: npm run setup-data
+      - name: Prepare full offline audio
+        run: npm run download-audio
+      - name: Verify engine and media behavior
+        run: npm test
+      - name: Build Windows launcher and installer
+        shell: pwsh
+        run: |
+          Copy-Item -LiteralPath (Get-Command node).Source -Destination runtime/node.exe
+          ./build-launcher.ps1
+          ./build-release.ps1 -ReleaseDirectory (Join-Path (Split-Path $PWD -Parent) 'output/release')
+      - name: Publish verified release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ inputs.release_id }}
+        run: |
+          $taskArgs = @('scripts/publish-github.mjs','--repo',$env:GITHUB_REPOSITORY,'--release-dir',(Join-Path (Split-Path $PWD -Parent) 'output/release'))
+          if ($env:RELEASE_ID) { $taskArgs += @('--release-id',$env:RELEASE_ID) }
+          node @taskArgs

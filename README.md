@@ -62,3 +62,5 @@ npm start
 Windows 构建步骤：先初始化题库、准备全部听力，将 Node.js x64 可执行文件放到 `runtime/node.exe`（许可文本已保留），运行 `build-launcher.ps1`，再运行 `build-release.ps1`。后者生成单文件安装包与免安装 ZIP，包含题库、已校验音频、源码许可与第三方来源说明，输出目录还包含 SHA-256 清单和分享说明。运行 `npm run prepare-resources` 可从当前本地题库重新生成仓库资源快照。
 
 安装向导支持当前用户安装、选择目录、桌面与开始菜单快捷方式及 Windows 应用列表卸载。为保护旧记录，安装目标必须为空文件夹；迁移时使用学习备份。卸载保留 data 文件夹。
+
+仓库维护者也可在 Actions 中手动运行 `Build offline Windows release`。云端会初始化完整题库，从公开索引下载并校验听力、运行测试、构建 Windows 安装版并发布附件。若已有 Release 草稿，可填写其 ID；工作流只使用当前仓库临时令牌，不需要额外保存个人令牌。

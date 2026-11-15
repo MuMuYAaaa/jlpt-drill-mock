@@ -13,11 +13,14 @@ const repository=arg('--repo'),directory=arg('--release-dir');
 if(!/^[\w.-]+\/[\w.-]+$/.test(repository??'')||!directory)throw new Error('用法：node scripts/publish-github.mjs --repo OWNER/REPO --release-dir PATH');
 const [owner,repo]=repository.split('/'),manifest=JSON.parse(fs.readFileSync(path.join(directory,'release-manifest.json'),'utf8').replace(/^\uFEFF/,''));
 const tag='v'+manifest.Version;
-const credential=spawnSync('git',['-c','credential.interactive=never','credential','fill'],{input:`protocol=https\nhost=github.com\nusername=${owner}\n\n`,cwd:os.tmpdir(),encoding:'utf8',windowsHide:true,env:{...process.env,GIT_TERMINAL_PROMPT:'0',GCM_INTERACTIVE:'never'}});
-if(credential.status!==0)throw new Error('GitHub 推送凭据不可用，请先通过 Git Credential Manager 登录。');
-const fields=Object.fromEntries(credential.stdout.trim().split(/\r?\n/).filter(x=>x.includes('=')).map(x=>[x.slice(0,x.indexOf('=')),x.slice(x.indexOf('=')+1)]));
-const token=fields.password;if(!token)throw new Error('未取得 GitHub 凭据');
-credential.stdout='';
+let token=process.env.GH_TOKEN||process.env.GITHUB_TOKEN;
+if(!token){
+ const credential=spawnSync('git',['-c','credential.interactive=never','credential','fill'],{input:`protocol=https\nhost=github.com\nusername=${owner}\n\n`,cwd:os.tmpdir(),encoding:'utf8',windowsHide:true,env:{...process.env,GIT_TERMINAL_PROMPT:'0',GCM_INTERACTIVE:'never'}});
+ if(credential.status!==0)throw new Error('GitHub 推送凭据不可用，请先通过 Git Credential Manager 登录。');
+ const fields=Object.fromEntries(credential.stdout.trim().split(/\r?\n/).filter(x=>x.includes('=')).map(x=>[x.slice(0,x.indexOf('=')),x.slice(x.indexOf('=')+1)]));
+ token=fields.password;credential.stdout='';
+}
+if(!token)throw new Error('未取得 GitHub 凭据');
 function request(method,url,{json,file,label}={}){
  const u=new URL(url);
  if(u.protocol!=='https:'||!['api.github.com','uploads.github.com'].includes(u.hostname))throw new Error('拒绝向非 GitHub 地址发送凭据');
@@ -39,14 +42,17 @@ function request(method,url,{json,file,label}={}){
  });
 }
 const api='https://api.github.com';
-const user=await request('GET',api+'/user');
+const user=process.env.GITHUB_ACTIONS==='true'?{login:'github-actions'}:await request('GET',api+'/user');
 console.log(JSON.stringify({authenticatedAs:user.login,repository}));
 const project=await request('GET',`${api}/repos/${repository}`);
-if(!project.permissions?.push)throw new Error('当前 GitHub 凭据没有目标仓库的写入权限');
+if(project.permissions?!project.permissions.push:process.env.GITHUB_ACTIONS!=='true')throw new Error('当前 GitHub 凭据没有目标仓库的写入权限');
 if(project.private)throw new Error('目标仓库当前是私有仓库，不能将其声称为公开开源项目');
 if(process.argv.includes('--check-only')){console.log(JSON.stringify({ok:true,authenticatedAs:user.login,repository:project.html_url,canPush:true}));process.exit(0);}
 let release;
-try{release=await request('GET',`${api}/repos/${repository}/releases/tags/${tag}`);}catch(e){if(e.status!==404)throw e;}
+if(arg('--release-id')){if(!/^\d+$/.test(arg('--release-id')))throw new Error('Release ID 无效');release=await request('GET',`${api}/repos/${repository}/releases/${arg('--release-id')}`);if(release.tag_name!==tag)throw new Error('Release 版本与待上传文件不一致');}
+const statePath=path.join(root,'evidence/github-release-state.json');
+if(!release&&fs.existsSync(statePath)){const saved=JSON.parse(fs.readFileSync(statePath));if(saved.repository===repository&&saved.tag===tag){release=await request('GET',`${api}/repos/${repository}/releases/${saved.releaseId}`);}}
+if(!release)try{release=await request('GET',`${api}/repos/${repository}/releases/tags/${tag}`);}catch(e){if(e.status!==404)throw e;}
 if(!release){release=await request('POST',`${api}/repos/${repository}/releases`,{json:{tag_name:tag,target_commitish:'main',name:'日语研习室 '+manifest.Version,body:fs.readFileSync(path.join(root,'RELEASE_NOTES.md'),'utf8'),draft:true,prerelease:false}});}
 console.log(JSON.stringify({releaseId:release.id,url:release.html_url,draft:release.draft}));
 fs.mkdirSync(path.join(root,'evidence'),{recursive:true});
@@ -60,6 +66,7 @@ const sumsPath=path.join(directory,'SHA256SUMS.txt');fs.writeFileSync(sumsPath,s
 assets.push({file:'SHA256SUMS.txt',name:'SHA256SUMS.txt',sha:createHash('sha256').update(sums).digest('hex'),label:'SHA-256 校验值'});
 const existing=await request('GET',`${api}/repos/${repository}/releases/${release.id}/assets?per_page=100`);
 for(const asset of assets){
+ if(arg('--only')&&!asset.name.includes(arg('--only')))continue;
  const file=path.join(directory,asset.file),size=fs.statSync(file).size;
  const before=existing.find(x=>x.name===asset.name);
  if(before){if(before.size!==size||before.digest!=='sha256:'+asset.sha)throw new Error('远端已有不匹配的同名资源：'+asset.name);console.log(JSON.stringify({alreadyUploaded:asset.name}));continue;}
@@ -67,6 +74,7 @@ for(const asset of assets){
  if(uploaded.size!==size||uploaded.state!=='uploaded'||(uploaded.digest&&uploaded.digest!=='sha256:'+asset.sha))throw new Error('上传后的文件校验不一致：'+asset.name);
  console.log(JSON.stringify({uploaded:uploaded.name,bytes:uploaded.size,digest:uploaded.digest,url:uploaded.browser_download_url}));
 }
+if(process.argv.includes('--defer-publish')){console.log(JSON.stringify({ok:true,draft:release.draft,releaseId:release.id,publicationDeferred:true}));process.exit(0);}
 if(release.draft)release=await request('PATCH',`${api}/repos/${repository}/releases/${release.id}`,{json:{draft:false}});
 const verified=await request('GET',`${api}/repos/${repository}/releases/${release.id}`);
 if(verified.draft||assets.some(x=>!verified.assets.some(a=>a.name===x.name&&a.state==='uploaded')))throw new Error('Release 发布状态未通过核验');
