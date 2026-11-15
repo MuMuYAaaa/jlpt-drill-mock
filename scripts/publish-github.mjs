@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import https from 'node:https';
+import os from 'node:os';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
@@ -12,7 +13,7 @@ const repository=arg('--repo'),directory=arg('--release-dir');
 if(!/^[\w.-]+\/[\w.-]+$/.test(repository??'')||!directory)throw new Error('用法：node scripts/publish-github.mjs --repo OWNER/REPO --release-dir PATH');
 const [owner,repo]=repository.split('/'),manifest=JSON.parse(fs.readFileSync(path.join(directory,'release-manifest.json'),'utf8').replace(/^\uFEFF/,''));
 const tag='v'+manifest.Version;
-const credential=spawnSync('git',['-c','credential.interactive=never','credential','fill'],{input:`protocol=https\nhost=github.com\nusername=${owner}\n\n`,encoding:'utf8',windowsHide:true,env:{...process.env,GIT_TERMINAL_PROMPT:'0',GCM_INTERACTIVE:'never'}});
+const credential=spawnSync('git',['-c','credential.interactive=never','credential','fill'],{input:`protocol=https\nhost=github.com\nusername=${owner}\n\n`,cwd:os.tmpdir(),encoding:'utf8',windowsHide:true,env:{...process.env,GIT_TERMINAL_PROMPT:'0',GCM_INTERACTIVE:'never'}});
 if(credential.status!==0)throw new Error('GitHub 推送凭据不可用，请先通过 Git Credential Manager 登录。');
 const fields=Object.fromEntries(credential.stdout.trim().split(/\r?\n/).filter(x=>x.includes('=')).map(x=>[x.slice(0,x.indexOf('=')),x.slice(x.indexOf('=')+1)]));
 const token=fields.password;if(!token)throw new Error('未取得 GitHub 凭据');
@@ -43,6 +44,7 @@ console.log(JSON.stringify({authenticatedAs:user.login,repository}));
 const project=await request('GET',`${api}/repos/${repository}`);
 if(!project.permissions?.push)throw new Error('当前 GitHub 凭据没有目标仓库的写入权限');
 if(project.private)throw new Error('目标仓库当前是私有仓库，不能将其声称为公开开源项目');
+if(process.argv.includes('--check-only')){console.log(JSON.stringify({ok:true,authenticatedAs:user.login,repository:project.html_url,canPush:true}));process.exit(0);}
 let release;
 try{release=await request('GET',`${api}/repos/${repository}/releases/tags/${tag}`);}catch(e){if(e.status!==404)throw e;}
 if(!release){release=await request('POST',`${api}/repos/${repository}/releases`,{json:{tag_name:tag,target_commitish:'main',name:'日语研习室 '+manifest.Version,body:fs.readFileSync(path.join(root,'RELEASE_NOTES.md'),'utf8'),draft:true,prerelease:false}});}
