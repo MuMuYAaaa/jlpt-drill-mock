@@ -49,9 +49,10 @@ let timerBusy = false;
 let loadedSessionAt = Date.now();
 let audioPauseBusy=false;
 let examAudioNotice='';
+const pageMotion=new PageMotion($('#main'));
 const examAudio=new ExamAudioPlayer({onState:paintExamAudio,onComplete:()=>{if(!timerBusy){timerBusy=true;refreshSession().catch(e=>toast(e.message,true)).finally(()=>timerBusy=false);}},onError:message=>pauseExamAudio(message),onBlocked:()=>pauseExamAudio('浏览器需要你点击继续，听力考试已暂停。')});
 const examFocus=new ExamFocusController({
- onFreeze:()=>{examAudio.focusPaused=true;examAudio.paused=true;examAudio.audio.pause();$('#modal').close();},
+ onFreeze:()=>{pageMotion.cancel();examAudio.focusPaused=true;examAudio.paused=true;examAudio.audio.pause();$('#modal').close();},
  onInterrupt:async(id,reason)=>{const s=await api(`/api/sessions/${encodeURIComponent(id)}/pause-focus`,{reason});if(state.page==='session'&&state.session?.id===id){state.session=s;loadedSessionAt=Date.now();renderSession();}},
  onResume:id=>api(`/api/sessions/${encodeURIComponent(id)}/resume-focus`,{}),
  onRestored:s=>{if(state.session?.id!==s.id)return;state.session=s;loadedSessionAt=Date.now();examAudio.focusPaused=false;if(!s.listening?.paused)examAudio.retry();renderSession();}
@@ -140,35 +141,52 @@ async function route() {
     history.replaceState(null,'',`#session/${encodeURIComponent(previous.id)}`);
     examFocus.interrupt('navigation');return;
   }
-  if(state.page==='session'&&previous?.status==='active'&&previous.listening&&(page!=='session'||id!==previous.id)){
-    if(!previous.listening.paused)try{state.session=await api(`/api/sessions/${encodeURIComponent(previous.id)}/pause-listening`,{});}catch(e){toast(e.message,true);}
-  }
-  if(page!=='session'||id!==previous?.id)examAudio.configure(null);
   if (!navigation.some(n => n[0]===page) && !['session','result'].includes(page)) { location.hash='dashboard'; return; }
-  state.page = page; state.feedback = {}; state.showReadings = false; renderNav();
-  $('#main').innerHTML = '<div class="loading"><span class="spinner"></span>正在载入…</div>';
+  if (['session','result'].includes(page) && !id) { location.hash='dashboard'; return; }
+  pageMotion.cancel();
+  const main=$('#main'),shell=$('.app-shell'),current=()=>generation===state.routeGeneration;
+  main.inert=true;main.setAttribute('aria-busy','true');shell.classList.add('page-loading');
+  const show=render=>pageMotion.swap(()=>{render();window.scrollTo({top:0,behavior:'instant'});},{current});
   try {
+    if(state.page==='session'&&previous?.status==='active'&&previous.listening&&(page!=='session'||id!==previous.id)){
+      if(!previous.listening.paused)try{await api(`/api/sessions/${encodeURIComponent(previous.id)}/pause-listening`,{});}catch(e){toast(e.message,true);}
+      if(!current())return;
+    }
+    if(page!=='session'||id!==previous?.id)examAudio.configure(null);
     if (page === 'session' || page === 'result') {
-      if (!id) { location.hash='dashboard'; return; }
-      const [session,offline] = await Promise.all([api(`/api/sessions/${encodeURIComponent(id)}`),api('/api/offline-status').catch(()=>({complete:false}))]);state.offline=offline;
-      if (generation !== state.routeGeneration) return;
-      state.session = session; loadedSessionAt = Date.now();
-      if (session.level) { state.level = session.level; localStorage.setItem('jlpt-level',state.level); }
-      if (session.status==='finished' || page==='result') {
-        state.page = 'result'; state.result = session.result || (session.status==='finished'?session:null); state.reviewResultFilter='all';
-        if (!state.result) throw new Error('这次练习尚未交卷，请从继续练习入口返回。');
-        renderNav(); renderResult();
-      } else { state.feedback = session.feedback || {}; renderNav(); renderSession(); }
+      const [session,offline] = await Promise.all([api(`/api/sessions/${encodeURIComponent(id)}`),api('/api/offline-status').catch(()=>({complete:false}))]);
+      if(!current())return;
+      if(page==='result'&&session.status!=='finished')throw new Error('这次练习尚未交卷，请从继续练习入口返回。');
+      await show(()=>{
+        state.page=page;state.feedback={};state.showReadings=false;state.offline=offline;
+        state.session=session;loadedSessionAt=Date.now();
+        state.level=session.level || state.level;localStorage.setItem('jlpt-level',state.level);
+        if(session.status==='finished'){
+          state.page='result';state.result=session.result;state.reviewResultFilter='all';
+          renderNav();renderResult();
+        }else{state.feedback=session.feedback || {};renderNav();renderSession();}
+      });
       return;
     }
-    await loadCatalog();
-    if (generation !== state.routeGeneration) return;
-    if (page === 'history') { const r = await api(`/api/history?level=${encodeURIComponent(state.level)}`); if(generation!==state.routeGeneration)return;state.history=r.items || []; }
-    if (page === 'wrong' || page === 'favorites') { const r = await api(`/api/review?kind=${page}&level=${encodeURIComponent(state.level)}`);if(generation!==state.routeGeneration)return;state.review=r.items || [];state.reviewQuery='';state.reviewPage=0; }
-    renderPage();
+    const level=encodeURIComponent(state.level);
+    const extra=page==='history'?api(`/api/history?level=${level}`):['wrong','favorites'].includes(page)?api(`/api/review?kind=${page}&level=${level}`):Promise.resolve(null);
+    const [catalog,offline,data]=await Promise.all([api(`/api/catalog?level=${level}`),api('/api/offline-status').catch(()=>({complete:false})),extra]);
+    if(!current())return;
+    await show(()=>{
+      state.page=page;state.feedback={};state.showReadings=false;
+      state.catalog=catalog;state.offline=offline;
+      if(page==='history')state.history=data.items || [];
+      if(page==='wrong'||page==='favorites'){state.review=data.items || [];state.reviewQuery='';state.reviewPage=0;}
+      renderNav();renderPage();
+    });
   } catch (e) {
-    if(generation!==state.routeGeneration)return;
-    $('#main').innerHTML = heading('LEARNING SPACE','暂时无法打开学习空间','请确认本地服务正在运行。') + `<div class="error-banner">${esc(e.message)}</div><button class="button primary" data-action="retry">${icon('resume',16)} 重新载入</button>`;
+    if(!current())return;
+    await show(()=>{
+      state.page=page;renderNav();
+      main.innerHTML=heading('LEARNING SPACE','暂时无法打开学习空间','请确认本地服务正在运行。')+`<div class="error-banner">${esc(e.message)}</div><button class="button primary" data-action="retry">${icon('resume',16)} 重新载入</button>`;
+    });
+  } finally {
+    if(current()){main.inert=false;main.removeAttribute('aria-busy');shell.classList.remove('page-loading');}
   }
 }
 function renderPage() {
@@ -397,13 +415,19 @@ async function checkpoint() { if(!state.session || state.session.status!=='activ
 async function goQuestion(index) {
   const s=state.session;if(!s || state.busy||examFocus.locked)return;
   const nextIndex=Math.max(0,Math.min(s.questions.length-1,index));
+  if(nextIndex===s.currentIndex)return;
   const sec=currentSection(s);
   if(s.mode==='exam'&&sec&&s.questions[nextIndex].sectionId!==sec.id){toast('请先完成当前科目，再进入下一节。');return;}
-  s.currentIndex=nextIndex;renderSession();
+  const direction=nextIndex>s.currentIndex?1:-1;
+  if(s.mode==='exam'){pageMotion.cancel();s.currentIndex=nextIndex;renderSession();}
+  else{
+    const rendered=await pageMotion.swap(()=>{s.currentIndex=nextIndex;renderSession();},{kind:'question',direction,current:()=>state.page==='session'&&state.session===s});
+    if(!rendered)return;
+  }
   try{await checkpoint();}catch(e){toast(e.message,true);}
 }
 async function answer(optionId) {
-  if(state.busy)return;const s=state.session,q=currentQuestion();if(!s||!q)return;
+  if(state.busy||$('#main').inert)return;const s=state.session,q=currentQuestion();if(!s||!q)return;
   if(s.phase==='break'||s.listening?.paused||examFocus.locked)return;
   if(s.mode!=='exam'&&state.feedback[q.id])return;
   const sec=currentSection();if(s.mode==='exam'&&sec&&q.sectionId!==sec.id)return;
@@ -462,7 +486,7 @@ async function toggleFavorite(id,source='session') {
 }
 
 async function handleAction(button) {
-  const action=button.dataset.action==='focus-finish'?'finish':button.dataset.action;if(button.disabled)return;
+  const action=button.dataset.action==='focus-finish'?'finish':button.dataset.action;if(button.disabled||button.closest('#main')?.inert)return;
   if(action==='resume-exam-focus'){await examFocus.resume();return;}
   if(examFocus.locked&&!['finish','submit-finish','close-modal'].includes(action))return;
   if(examFocus.id&&['leave-session','pause-leave'].includes(action)){confirmFinish();return;}
@@ -473,7 +497,7 @@ async function handleAction(button) {
   if(action==='follow-listening'){const p=examAudio.getPosition();const index=state.session.questions.findIndex(q=>p?.item?.questionIds.includes(q.id));if(index>=0)await goQuestion(index);return;}
   if(action==='retry'){await route();return;}
   if(action==='category'){state.practiceCategory=integer(button.dataset.id);if(state.page==='practice')renderPractice();else location.hash='practice';return;}
-  if(action==='filter-category'){state.practiceCategory=integer(button.dataset.id);renderPractice();return;}
+  if(action==='filter-category'){state.practiceCategory=integer(button.dataset.id);await pageMotion.swap(renderPractice,{kind:'section'});return;}
   if(action==='setup-practice'){setupPractice(button.dataset.type);return;}
   if(action==='setup-review'){setupPractice(null,button.dataset.kind);return;}
   if(action==='practice-one'){setupPractice(null,button.dataset.kind,button.dataset.id);return;}
@@ -500,8 +524,8 @@ async function handleAction(button) {
   if(action==='submit-next-section'){await nextSection();return;}
   if(action==='submit-finish'){await finish();return;}
   if(action==='leave-session'){if(state.session.listening){showModal('暂停并退出听力考试？','已答题目和录音位置将保留。','<p class="modal-warning">继续考试时从暂停位置恢复，录音不会从头重播。</p>','<button class="button primary" data-action="pause-leave">保存并暂停</button>');return;}await checkpoint();location.hash=state.session.mode==='exam'?'exam':'dashboard';toast('进度已保存，下次可以接着练。');return;}
-  if(action==='result-filter'){state.reviewResultFilter=button.dataset.kind;renderResult();return;}
-  if(action==='review-page'){state.reviewPage=integer(button.dataset.page);renderReview();window.scrollTo({top:0,behavior:'smooth'});return;}
+  if(action==='result-filter'){state.reviewResultFilter=button.dataset.kind;await pageMotion.swap(renderResult,{kind:'section'});return;}
+  if(action==='review-page'){const direction=integer(button.dataset.page)>state.reviewPage?1:-1;state.reviewPage=integer(button.dataset.page);await pageMotion.swap(()=>{renderReview();window.scrollTo({top:0,behavior:'instant'});},{kind:'question',direction});return;}
   if(action==='import-bank'){$('#bank-file').click();return;}
   if(action==='restore'){$('#restore-file').click();return;}
   if(action==='reset-progress'){
@@ -516,7 +540,7 @@ document.addEventListener('click',ev=>{const b=ev.target.closest('[data-action]'
 document.addEventListener('error',ev=>{if(ev.target.tagName==='IMG'){const figure=ev.target.closest('.document-figure');const fallback=figure?.querySelector('.image-fallback');if(fallback){ev.target.hidden=true;fallback.hidden=false;}}},true);
 document.addEventListener('change',async ev=>{
   try{
-    if(ev.target.id==='paper-year'){state.paperYear=ev.target.value;renderExam();}
+    if(ev.target.id==='paper-year'){state.paperYear=ev.target.value;await pageMotion.swap(renderExam,{kind:'section'});}
     if(ev.target.id==='bank-file'&&ev.target.files[0]){
       const file=ev.target.files[0];if(file.size>100*1024*1024)throw new Error('题库文件超过 100 MB，请拆分后再导入。');
       const data=JSON.parse(await file.text());const r=await api('/api/import',data);await loadCatalog();renderData();toast(r.message || `题库已导入${r.questionCount?`，共 ${r.questionCount} 题`:''}。`);
@@ -535,14 +559,14 @@ $('#level').addEventListener('change',()=>{if(state.page==='session'){toast('请
 $('#theme-button').addEventListener('click',()=>{const theme=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=theme;localStorage.setItem('jlpt-theme',theme);renderNav();});
 $('#modal').addEventListener('click',ev=>{if(ev.target===$('#modal')){const rect=ev.target.getBoundingClientRect();if(ev.clientX<rect.left||ev.clientX>rect.right||ev.clientY<rect.top||ev.clientY>rect.bottom)$('#modal').close();}});
 document.addEventListener('keydown',ev=>{
-  if(state.page!=='session'||examFocus.locked||state.session?.phase==='break'||state.session?.listening?.paused||$('#modal').open||state.busy||ev.altKey||ev.ctrlKey||ev.metaKey||/INPUT|TEXTAREA|SELECT/.test(ev.target.tagName))return;
+  if(state.page!=='session'||$('#main').inert||examFocus.locked||state.session?.phase==='break'||state.session?.listening?.paused||$('#modal').open||state.busy||ev.altKey||ev.ctrlKey||ev.metaKey||/INPUT|TEXTAREA|SELECT/.test(ev.target.tagName))return;
   const q=currentQuestion();if(!q)return;
   if(/^[1-4]$/.test(ev.key)){const option=q.options[Number(ev.key)-1];if(option){ev.preventDefault();answer(option.id).catch(e=>toast(e.message,true));}}
   if(ev.key==='ArrowLeft'){ev.preventDefault();goQuestion(state.session.currentIndex-1);}
   if(ev.key==='ArrowRight'||ev.key==='Enter'){ev.preventDefault();const next=$('[data-action="next"]');if(next)next.click();}
   if(ev.key.toLowerCase()==='f'){ev.preventDefault();toggleFavorite(q.id).catch(e=>toast(e.message,true));}
 });
-window.addEventListener('hashchange',()=>{window.scrollTo({top:0});route();});
+window.addEventListener('hashchange',route);
 window.addEventListener('storage',ev=>{if(ev.key==='jlpt-progress-reset-at'&&ev.newValue){clearLearningView();$('#modal').close();if(location.hash!=='#data')location.hash='data';else route();toast('学习进度已在另一个窗口中重置。');}});
 window.addEventListener('beforeunload',()=>{if(state.page==='session'&&state.session?.status==='active'){const s=state.session;fetch(`/api/sessions/${encodeURIComponent(s.id)}/checkpoint`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({currentIndex:s.currentIndex,flags:s.flags || []}),keepalive:true}).catch(()=>{});if(s.mode==='exam')fetch(`/api/sessions/${encodeURIComponent(s.id)}/pause-focus`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{"reason":"refresh"}',keepalive:true}).catch(()=>{});}});
 document.documentElement.dataset.theme=localStorage.getItem('jlpt-theme') || 'light';

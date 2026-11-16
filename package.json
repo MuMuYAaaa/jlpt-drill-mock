@@ -1,6 +1,6 @@
 {
   "name": "jlpt-desk-local",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "type": "module",
   "description": "Local Japanese practice and mock examination workspace",

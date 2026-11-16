@@ -132,7 +132,7 @@ export function createApp({ root = HERE, port = 47321, engine } = {}) {
       try { url = new URL(req.url, `http://127.0.0.1:${boundPort}`); } catch { throw new AppError('请求地址无效'); }
       const pathname = decodeURIComponent(url.pathname), method = req.method;
       if (!['GET', 'HEAD', 'POST'].includes(method)) throw new AppError('请求方法不受支持', 405);
-      if (pathname === '/api/health' && method === 'GET') { json(res, 200, { ok: true, app: 'jlpt-desk', questions: study.bank.questions.length, version: '1.2.0' }); return; }
+      if (pathname === '/api/health' && method === 'GET') { json(res, 200, { ok: true, app: 'jlpt-desk', questions: study.bank.questions.length, version: '1.2.1' }); return; }
       if (pathname === '/api/offline-status' && method === 'GET') {
         const file = path.join(root, 'data', 'offline-audio.json');
         json(res, 200, fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : { complete: false }); return;

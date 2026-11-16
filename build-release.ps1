@@ -30,7 +30,7 @@ Add-ReleaseFile '使用说明.txt' (Join-Path $taskRoot 'packaging\使用说明.
 Add-ReleaseFile '计分规则.md' (Join-Path $taskRoot 'docs\SCORING.md')
 foreach ($taskName in @('LICENSE','THIRD_PARTY_NOTICES.md')) { Add-ReleaseFile $taskName }
 Add-ReleaseFile '卸载日语研习室.exe' $taskStub
-foreach ($taskName in @('index.html','style.css','theme.css','app.js','exam-audio.js','exam-focus.js')) { Add-ReleaseFile ('public/' + $taskName) }
+foreach ($taskName in @('index.html','style.css','theme.css','app.js','exam-audio.js','exam-focus.js','page-motion.js')) { Add-ReleaseFile ('public/' + $taskName) }
 foreach ($taskDir in @('lib','runtime')) {
     Get-ChildItem -LiteralPath (Join-Path $taskRoot $taskDir) -File -Recurse | Sort-Object FullName | ForEach-Object { Add-ReleaseFile $_.FullName.Substring($taskRoot.Length+1) }
 }

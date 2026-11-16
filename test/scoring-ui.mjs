@@ -48,6 +48,7 @@ try {
   assert.deepEqual(engine.state.events, eventsBefore);
   checks.push('旧版练习记录刷新后自动补算，学习事件和原记录不变');
   await page.locator('[data-action="result-filter"][data-kind="wrong"]').click();
+  await page.waitForFunction(()=>!document.querySelector('#main').inert);
   await assertScores();
   assert.equal(await page.locator('.result-review').count(), 56);
   checks.push('筛选错题时总分和三个部分统计不随筛选改变');
@@ -84,6 +85,7 @@ try {
   const q = engine.findSession(one.id).questions[0];
   engine.answer(one.id, { questionId: q.id, optionId: q.answer }); engine.finish(one.id);
   await page.goto(`${base}/#result/${one.id}`); await page.locator('[data-total-score]').waitFor();
+  await page.waitForFunction(id=>state.session?.id===id&&!document.querySelector('#main').inert,one.id);
   assert.match(await page.locator('[data-total-score]').innerText(), /60\.0\s*\/ 60 分/);
   assert.match(await page.locator('[data-score-section="reading"]').innerText(), /未涉及/);
   assert.match(await page.locator('[data-score-section="listening"]').innerText(), /未涉及/);
@@ -93,6 +95,7 @@ try {
   for (const q of engine.findSession(n3.id).questions) engine.answer(n3.id, { questionId: q.id, optionId: q.answer });
   engine.finish(n3.id);
   await page.goto(`${base}/#result/${n3.id}`); await page.locator('[data-total-score]').waitFor();
+  await page.waitForFunction(id=>state.session?.id===id&&!document.querySelector('#main').inert,n3.id);
   assert.match(await page.locator('[data-total-score]').innerText(), /180\.0\s*\/ 180 分/);
   checks.push('N3 长篇阅读每题4分、发话表达每题2分，三项全对为180分');
   for (const level of ['N1','N4','N5']) {
@@ -100,6 +103,7 @@ try {
     for (const q of engine.findSession(mixed.id).questions) engine.answer(mixed.id,{questionId:q.id,optionId:q.type===201?q.options.find(o=>o.id!==q.answer).id:q.answer});
     engine.finish(mixed.id);
     await page.goto(`${base}/#result/${mixed.id}`); await page.locator('[data-total-score]').waitFor();
+    await page.waitForFunction(id=>state.session?.id===id&&!document.querySelector('#main').inert,mixed.id);
     assert.ok((await page.locator('[data-total-score]').innerText()).includes(level==='N1'?'160.0':'150.0'));
     await page.locator('.result-score-weights summary').click();
     assert.ok((await page.locator('.result-score-method .tiny-tag').innerText()).includes(level==='N1'?'N1 参考':'N3 参考'));

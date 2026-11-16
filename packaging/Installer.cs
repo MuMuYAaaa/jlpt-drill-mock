@@ -15,7 +15,7 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 
 static class PackageProgram {
- internal const string Product="日语研习室", Version="1.2.0", ArchiveRoot="日语研习室/";
+ internal const string Product="日语研习室", Version="1.2.1", ArchiveRoot="日语研习室/";
  internal const string RegistryPath=@"Software\Microsoft\Windows\CurrentVersion\Uninstall\JapaneseStudyDesk";
  static readonly byte[] Magic=Encoding.ASCII.GetBytes("JLPT-DESK-PKG-V1");
  internal static readonly JavaScriptSerializer Json=new JavaScriptSerializer();
