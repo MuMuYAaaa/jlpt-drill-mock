@@ -6,6 +6,11 @@ on:
         description: 'Existing draft Release ID; leave empty to use the version tag'
         type: string
         required: false
+      audio_seed_tag:
+        description: 'Reuse verified media from this previous release; empty downloads from the public source'
+        type: string
+        required: false
+        default: 'v1.2.0'
 permissions:
   contents: write
 concurrency:
@@ -23,6 +28,13 @@ jobs:
           package-manager-cache: false
       - name: Initialize complete question bank
         run: npm run setup-data
+      - name: Restore media from verified previous release
+        if: inputs.audio_seed_tag != ''
+        continue-on-error: true
+        shell: pwsh
+        env:
+          AUDIO_SEED_TAG: ${{ inputs.audio_seed_tag }}
+        run: ./scripts/seed-release-audio.ps1 -Repository $env:GITHUB_REPOSITORY -Tag $env:AUDIO_SEED_TAG
       - name: Prepare full offline audio
         run: npm run download-audio
       - name: Verify engine and media behavior
